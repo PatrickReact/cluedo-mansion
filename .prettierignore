@@ -3,3 +3,7 @@ dev-dist
 node_modules
 public/assets
 package-lock.json
+
+# Memoria di progetto: generata e ruotata da Sinapsi, non sorgente.
+# Riformattarla a mano corromperebbe la rotazione che tiene continua la storia.
+.sinapsi

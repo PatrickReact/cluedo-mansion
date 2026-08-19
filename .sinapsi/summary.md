@@ -30,8 +30,6 @@ src/
       Notebook.tsx                            2026-08-19  edited this session
       PhoneJoin.tsx                           2026-08-19  edited this session
     tv/
-      TvLobby.tsx                             2026-08-19  edited this session
-      TvScreen.tsx                            2026-08-19  edited this session
       TvSidebar.tsx                           2026-08-19  edited this session
   store/
     hostStore.ts                              2026-08-19  edited this session
@@ -39,9 +37,11 @@ src/
   test/ … 0 files, none ranked
   ui/ … 3 files, none ranked
   … 4 more, none ranked
+.prettierignore                               2026-08-19  edited this session
 README.md                                     2026-08-19  edited this session
 package-lock.json                             2026-08-19
-… 16 more, none ranked
+vitest.config.ts                              2026-08-19  edited this session
+… 14 more, none ranked
 # 18 of 109 files are on this map — the rest are unranked, not hidden.
 ```
 <!-- sinapsi:end -->

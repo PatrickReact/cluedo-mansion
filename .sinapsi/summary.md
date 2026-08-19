@@ -57,15 +57,17 @@ closing tool updates it: a dated line in, the eleventh out, and the recap replac
 <!-- The last 10 patches, newest first: `- <timestamp> — <one line>`. The window slides
      on its own; the full history is in the session log and, once rotated, in archive/. -->
 
+- 2026-08-19T20:30 — Avversari automatici probabilistici, onesti per costruzione e livellabili
 - 2026-08-19T19:16 — Impianto completo del Cluedo multiplayer: motore puro, rete host-autoritativa, TV e telefono
 
 ## Where things stand
 
-Cluedo multiplayer per il salotto: la TV mostra il tabellone e fa da host
-autoritativo, i telefoni sono controller che mandano solo intenti. Il motore
-delle regole e TypeScript puro con 62 test; il tabellone e una mappa ASCII 24x25
-da cui derivano pathfinding, rendering e validazione. La segretezza delle carte
-e una proprieta del payload (`toPublicState`), non della UI, ed e verificata da
-un test. Il codice e completo e verde in locale su `D:\Games\Cluedo` (branch
-`main`), ma non ancora pubblicato: mancano remote GitHub, progetto Vercel e
-credenziali Supabase — e finche manca Supabase i telefoni non si collegano.
+Cluedo multiplayer per il salotto: la TV e tabellone e host autoritativo, i
+telefoni mandano solo intenti. Motore delle regole in TypeScript puro, tabellone
+come mappa ASCII 24x25, segretezza delle carte garantita dal payload
+(`toPublicState`) e non dalla UI. Dalla lobby si riempiono i posti liberi con
+avversari automatici probabilistici — deduzione esatta piu campionamento di
+mondi coerenti, scelta per guadagno di informazione, tre livelli che cambiano la
+profondita di analisi e mai cio che il bot vede. 81 test verdi, codice su
+`main` e deploy Vercel attivo; manca solo la configurazione Supabase, senza la
+quale i telefoni non si collegano.

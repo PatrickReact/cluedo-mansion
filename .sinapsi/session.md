@@ -43,3 +43,43 @@ telefoni che entrano dal QR, avvio, tiro dadi, movimento — zero errori console
 
 Aperto: nessun remote GitHub, nessun progetto Vercel, nessuna credenziale Supabase,
 quindi i telefoni non possono ancora connettersi davvero.
+
+<!-- sinapsi:entry 2026-08-19T20:30 -->
+## 2026-08-19T20:30 — Avversari automatici probabilistici, onesti per costruzione e livellabili
+
+Obiettivo: permettere di giocare in due o da soli senza toccare il minimo di
+tre giocatori del regolamento. Quindi bot che occupano posti veri: tengono
+carte, confutano, possono vincere.
+
+Vincoli posti da Patrick: nessuno sbirciamento, tutto algoritmico e
+deterministico (niente modelli addestrati), livelli di difficolta, fedelta al
+regolamento originale.
+
+Cosa e stato creato in `src/bots/`:
+- belief.ts — deduzione esatta riusando `computeNotes` (lo stesso solver del
+  taccuino umano), piu campionamento di migliaia di distribuzioni delle carte
+  compatibili con quanto osservato. Contarle esattamente e #P-difficile.
+- policy.ts — scelta dell'ipotesi per massimo guadagno di informazione atteso
+  sulla distribuzione della soluzione; movimento verso le stanze la cui carta
+  e ancora ignota; confutazione che rimostra una carta gia vista.
+- driver.ts — passa a `decide()` SOLO `toPublicState` e `toPrivateState`.
+
+Refactor abilitanti: rimosso `isNpc`, un gancio mai agganciato, e i 17 filtri
+che lo escludevano; `computeNotes` non prende piu un `GameState` ma il minimo
+che gli serve, il che ha eliminato anche il cast forzato lato telefono.
+
+Due difetti trovati misurando, non leggendo il codice:
+1. I bot rimbalzavano fra le coppie di passaggi segreti all'infinito
+   (Cucina<->Studio), ripetendo la stessa ipotesi 24 volte. Il passaggio va
+   confrontato con la migliore stanza del tabellone, non con quella attuale.
+2. Entrare sempre nella stanza raggiungibile piu vicina impedisce di testare
+   le carte stanza lontane: le partite non finivano in 160 turni.
+Corretti entrambi, le partite si chiudono 5/5.
+
+Verificato: 81 test (`npm run check` verde), benchmark su 5 seed a parita di
+carte e dadi — facile 47.8 turni, medio 37.4, difficile 28.2, zero accuse
+errate a ogni livello. Prova nel browser reale: lobby, due bot aggiunti dalla
+TV, livelli ciclati, partita avviata, bot che giocano da soli e si confutano.
+
+Chiuso anche il fallimento della CI: `prettier --check` controllava i file di
+`.sinapsi/`, ora esclusi. Push su main fatto, deploy Vercel in produzione.

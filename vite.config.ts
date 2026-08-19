@@ -3,9 +3,70 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
+import { loadEnv, type Plugin } from 'vite'
+
+/**
+ * GUARDIANO DELLE CHIAVI SEGRETE
+ *
+ * Vite sostituisce ogni `import.meta.env.VITE_*` con il suo valore letterale:
+ * tutto cio che ha quel prefisso finisce nel JavaScript servito a chiunque apra
+ * il sito. Una chiave `sb_secret_…` o `service_role` li dentro scavalca le
+ * policy RLS e apre il database al mondo.
+ *
+ * Questo plugin ferma la build invece di avvisare dopo. E successo davvero,
+ * durante lo sviluppo di questo gioco: un helper che restituiva
+ * `import.meta.env` come oggetto intero ha inlineato TUTTE le variabili,
+ * compresa una segreta. Un avviso non l'avrebbe impedito; questo si.
+ */
+function bloccaChiaviSegrete(): Plugin {
+  const sospette = [/^sb_secret_/, /^service_role/]
+
+  return {
+    name: 'cluedo:blocca-chiavi-segrete',
+    enforce: 'pre',
+    config(_config, { mode }) {
+      const env = loadEnv(mode, process.cwd(), 'VITE_')
+      const colpevoli = Object.entries(env).filter(([, value]) =>
+        sospette.some((re) => re.test(String(value).trim())),
+      )
+      if (colpevoli.length === 0) return
+
+      const nomi = colpevoli.map(([name]) => name).join(', ')
+      throw new Error(
+        `
+
+  CHIAVE SEGRETA ESPOSTA — build interrotta.
+
+` +
+          `  Queste variabili contengono una chiave segreta e hanno il prefisso VITE_,
+` +
+          `  quindi finirebbero nel bundle servito a tutti i browser:
+
+` +
+          `      ${nomi}
+
+` +
+          `  Cosa fare:
+` +
+          `    1. toglile dal .env e dalle variabili d'ambiente su Vercel;
+` +
+          `    2. rigenerale dal pannello Supabase: vanno considerate compromesse;
+` +
+          `    3. per il client serve solo VITE_SUPABASE_PUBLISHABLE_KEY.
+
+` +
+          `  Il gioco non usa mai una chiave segreta: parla solo con i canali
+` +
+          `  broadcast, che la chiave pubblicabile copre per intero.
+`,
+      )
+    },
+  }
+}
 
 export default defineConfig({
   plugins: [
+    bloccaChiaviSegrete(),
     react(),
     tailwindcss(),
     VitePWA({

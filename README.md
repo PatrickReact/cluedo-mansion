@@ -98,10 +98,19 @@ Vercel legge `vercel.json` e riconosce Vite da solo:
 In **Project Settings → Environment Variables**, per gli ambienti _Production_, _Preview_ e
 _Development_:
 
-| Nome                     | Valore                        |
-| ------------------------ | ----------------------------- |
-| `VITE_SUPABASE_URL`      | `https://xxxx.supabase.co`    |
-| `VITE_SUPABASE_ANON_KEY` | la chiave `anon` del progetto |
+| Nome                            | Valore                                          |
+| ------------------------------- | ----------------------------------------------- |
+| `VITE_SUPABASE_URL`             | `https://xxxx.supabase.co`                      |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | la chiave **pubblicabile** (`sb_publishable_…`) |
+
+Il nome storico `VITE_SUPABASE_ANON_KEY` (chiave JWT `eyJhbGciOi…`) è accettato allo stesso modo:
+Supabase ha rinominato le chiavi, il codice riconosce entrambe le convenzioni.
+
+> **Mai mettere una chiave segreta in una variabile `VITE_`.** Vite le sostituisce con il loro valore
+> dentro il bundle: `sb_secret_…` e `service_role` finirebbero nel JavaScript servito a ogni browser,
+> scavalcando le policy RLS. Il gioco non ne ha bisogno — parla solo con i canali broadcast — e un
+> guardiano in `vite.config.ts` **interrompe la build** se ne trova una, invece di limitarsi ad
+> avvisare a danno fatto.
 
 Sono variabili `VITE_*`, quindi finiscono nel bundle e sono **pubbliche per costruzione**. Va bene:
 la chiave `anon` di Supabase è pensata per stare nel client, e questo progetto non scrive nulla sul
@@ -121,7 +130,8 @@ Serve solo per far parlare dispositivi diversi. Il piano gratuito è più che su
 non crea tabelle, non scrive righe, non autentica nessuno. Usa esclusivamente i messaggi broadcast.
 
 1. Crea un progetto su [supabase.com](https://supabase.com) (piano gratuito).
-2. **Project Settings → API**: copia _Project URL_ e la chiave _anon public_.
+2. **Project Settings → API Keys**: copia _Project URL_ e la chiave **publishable** (o `anon`, se il
+   tuo progetto usa ancora i nomi storici). Non la chiave `secret` / `service_role`.
 3. In locale, copia `.env.example` in `.env` e incolla i valori.
 4. Su Vercel, inseriscili come variabili d'ambiente (sopra).
 
@@ -132,7 +142,16 @@ Non serve toccare lo schema del database, né le policy RLS, né l'autenticazion
 Il modello di fiducia è quello di una partita in salotto: **chi vede la TV può giocare**.
 
 - Il **codice stanza** compare solo sulla TV e nel QR. Non viaggia mai in chiaro sulla rete: sul filo
-  passano soltanto i nomi dei canali, che sono suoi hash SHA-256.
+  passano soltanto i nomi dei canali, che ne sono un hash.
+
+  L'hash è volutamente **non crittografico e identico ovunque**. Il codice ha sei caratteri su 28
+  simboli, cioè circa 2²⁹ combinazioni: a quell'entropia nessun hash è difficile da invertire per
+  forza bruta, quindi SHA-256 non aggiungerebbe sicurezza reale. Aggiungerebbe però un problema
+  concreto, che è già costato una serata: `crypto.subtle` esiste **solo in contesto sicuro**, quindi
+  la TV su `localhost` e il telefono su `http://192.168.x.x` calcolavano due nomi diversi e non si
+  incontravano mai. Il nome del canale dev'essere una proprietà della stanza, non del dispositivo —
+  ed è bloccato da un test.
+
 - Il **canale pubblico** trasporta lo stato ripulito (`toPublicState`): niente mani, niente
   soluzione, niente carta mostrata. È esattamente quello che vede la TV.
 - Ogni giocatore ha un **canale privato** il cui nome deriva da `hash(codice stanza + id giocatore)`:

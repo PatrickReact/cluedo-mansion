@@ -1,27 +1,44 @@
 /**
- * Derivazione dei nomi dei canali realtime.
+ * DERIVAZIONE DEI NOMI DEI CANALI REALTIME
  *
- * Modello di fiducia: chi vede la TV puo giocare. Il codice stanza e mostrato
- * solo sullo schermo grande (e nel QR), non viaggia mai in chiaro: sul filo
- * passano solo i suoi derivati. Chi non e nella stanza non conosce il codice,
- * quindi non sa nemmeno su quale canale mettersi in ascolto.
+ * Il nome del canale deve essere una proprieta della STANZA, mai del
+ * dispositivo. Sembra ovvio detto cosi, ed e esattamente l'errore che questo
+ * file conteneva:
  *
- * Nota sul contesto sicuro: `crypto.subtle` esiste solo su HTTPS e localhost.
- * Provando dal telefono su http://192.168.x.x non c'e, quindi esiste un
- * ripiego non crittografico. I nomi dei canali restano validi e la partita
- * funziona; si perde solo l'irreversibilita dell'hash, irrilevante in LAN.
+ *   la versione precedente usava SHA-256 tramite `crypto.subtle` dove
+ *   disponibile, e un hash non crittografico altrove. Ma `crypto.subtle` esiste
+ *   solo in contesto sicuro — HTTPS o localhost. Nella prova classica in
+ *   salotto la TV sta su `localhost:5173` e il telefono su
+ *   `http://192.168.x.x:5173`, che contesto sicuro non e. Risultato: i due capi
+ *   calcolavano due nomi diversi per la stessa stanza e non si incontravano
+ *   mai. Il WebSocket funzionava, l'intento partiva e veniva consegnato — su un
+ *   canale dove non ascoltava nessuno. Nessun errore, nessun messaggio: il
+ *   pulsante "Entra" sembrava semplicemente rotto.
+ *
+ * Da qui la regola: **un solo algoritmo, sempre, ovunque**. Niente rami
+ * condizionali, niente capacita del dispositivo, niente `await`.
+ *
+ * PERCHE UN HASH NON CRITTOGRAFICO VA BENISSIMO QUI.
+ * Il codice stanza ha sei caratteri su un alfabeto di 28: circa 2^29
+ * combinazioni. A quella entropia nessun hash e "difficile da invertire" —
+ * enumerarle tutte e precalcolare i nomi dei canali e alla portata di chiunque,
+ * con SHA-256 esattamente come con FNV-1a. La segretezza non viene dall'hash:
+ * viene dal fatto che il codice si vede solo sullo schermo della TV. L'hash
+ * serve a un'altra cosa, piu modesta e piu utile: che il codice non viaggi in
+ * chiaro sul filo e che i nomi dei canali non collidano.
+ *
+ * Sostituirlo con SHA-256 puro in JavaScript sarebbe possibile e resterebbe
+ * coerente, ma non aggiungerebbe nulla di reale contro un attacco a forza bruta
+ * su 2^29: costerebbe codice per una sicurezza illusoria.
  */
 
-const encoder = new TextEncoder()
-
-const toHex = (buffer: ArrayBuffer): string =>
-  [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
-
-const hasSubtle = (): boolean =>
-  typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.subtle !== 'undefined'
-
-/** FNV-1a a 128 bit (quattro corse indipendenti). Solo come ripiego. */
-function fallbackHash(input: string): string {
+/**
+ * FNV-1a a 128 bit, ottenuto da quattro corse indipendenti con semi diversi.
+ *
+ * Deterministico, senza dipendenze, identico in ogni browser e in Node — che e
+ * l'unica proprieta che conta per un nome di canale.
+ */
+function hash128(input: string): string {
   const seeds = [0x811c9dc5, 0x01000193, 0x9e3779b9, 0x85ebca6b]
   return seeds
     .map((seed) => {
@@ -35,20 +52,13 @@ function fallbackHash(input: string): string {
     .join('')
 }
 
-async function digest(input: string): Promise<string> {
-  if (!hasSubtle()) return fallbackHash(input)
-  try {
-    const buf = await globalThis.crypto.subtle.digest('SHA-256', encoder.encode(input))
-    return toHex(buf)
-  } catch {
-    return fallbackHash(input)
-  }
-}
-
-/** Canale pubblico della stanza: stato di gioco e intenti dei giocatori. */
-export async function publicChannelName(roomCode: string): Promise<string> {
-  const h = await digest(`cluedo:public:${roomCode.toUpperCase()}`)
-  return `cl-pub-${h.slice(0, 16)}`
+/**
+ * Canale pubblico della stanza: stato di gioco e intenti dei giocatori.
+ * Sincrono di proposito — un `await` in piu sul percorso di connessione e un
+ * punto in piu in cui l'ingresso puo restare appeso.
+ */
+export function publicChannelName(roomCode: string): string {
+  return `cl-pub-${hash128(`cluedo:public:${roomCode.toUpperCase()}`).slice(0, 16)}`
 }
 
 /**
@@ -56,10 +66,6 @@ export async function publicChannelName(roomCode: string): Promise<string> {
  * Deriva dal codice stanza piu l'id del giocatore, quindi solo l'host e quel
  * telefono possono calcolarlo.
  */
-export async function privateChannelName(roomCode: string, playerId: string): Promise<string> {
-  const h = await digest(`cluedo:private:${roomCode.toUpperCase()}:${playerId}`)
-  return `cl-prv-${h.slice(0, 20)}`
+export function privateChannelName(roomCode: string, playerId: string): string {
+  return `cl-prv-${hash128(`cluedo:private:${roomCode.toUpperCase()}:${playerId}`).slice(0, 20)}`
 }
-
-/** true se il contesto e sicuro e l'hash usato e crittografico. */
-export const isSecureHash = (): boolean => hasSubtle()

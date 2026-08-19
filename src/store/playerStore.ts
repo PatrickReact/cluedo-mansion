@@ -16,6 +16,9 @@ import { newPlayerId, normalizeRoomCode } from '@/lib/roomCode'
  * verso la TV.
  */
 
+/** Quanto si attende la conferma d'ingresso prima di dichiarare il silenzio. */
+const JOIN_TIMEOUT = 8000
+
 const ID_KEY = 'cluedo:playerId'
 const NOTES_KEY = 'cluedo:notes:'
 const SEEN_KEY = 'cluedo:seen:'
@@ -104,6 +107,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const { transport: existing, playerId } = get()
     if (existing?.roomCode === roomCode && existing.status === 'connected') return
     await existing?.disconnect()
+    set({ status: 'connecting', error: null })
 
     const transport = createTransport({
       roomCode,
@@ -135,20 +139,57 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       manualNotes: readJson<ManualNotes>(NOTES_KEY + roomCode, {}),
     })
 
-    await transport.connect()
-    await transport.identify(playerId)
+    // Un fallimento qui deve DIRSI. Prima restava una promessa respinta che
+    // nessuno raccoglieva, e il giocatore vedeva solo un pulsante che non
+    // faceva nulla: il modo peggiore possibile di fallire.
+    try {
+      await transport.connect()
+      await transport.identify(playerId)
+    } catch (error) {
+      set({
+        status: 'error',
+        error:
+          error instanceof Error ? `Connessione non riuscita: ${error.message}` : 'Connessione non riuscita.',
+      })
+    }
   },
 
   async join(rawCode, name, suspect) {
     await get().connect(rawCode)
-    const { playerId, transport } = get()
+    const { playerId, transport, status } = get()
+
+    if (!transport || status === 'error') {
+      if (!get().error) set({ error: 'Connessione non riuscita. Controlla il codice e riprova.' })
+      return
+    }
+
     set({ name })
     try {
       localStorage.setItem('cluedo:name', name)
     } catch {
-      // niente
+      // storage non disponibile: si perde solo il nome precompilato
     }
-    transport?.sendIntent({ type: 'JOIN', playerId, name, suspect })
+
+    transport.sendIntent({ type: 'JOIN', playerId, name, suspect })
+
+    /**
+     * Sentinella: se l'host non risponde, il giocatore deve saperlo.
+     *
+     * Entrare significa comparire nello stato pubblico che ritrasmette la TV.
+     * Se dopo qualche secondo non siamo comparsi, l'intento non e arrivato a
+     * nessuno — TV chiusa, codice sbagliato, canale diverso — e restare fermi
+     * sulla schermata di ingresso senza spiegazioni non e accettabile.
+     */
+    window.setTimeout(() => {
+      const { publicState, playerId: id } = get()
+      const joined = publicState?.players.some((p) => p.id === id)
+      if (joined) return
+      set({
+        error: publicState
+          ? 'La TV ha ricevuto la partita ma non il tuo ingresso: riprova.'
+          : 'Nessuna risposta dalla TV. Controlla che il codice sia quello mostrato sullo schermo e che la pagina /tv sia aperta.',
+      })
+    }, JOIN_TIMEOUT)
   },
 
   send(action) {

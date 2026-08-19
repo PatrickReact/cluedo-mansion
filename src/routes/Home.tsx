@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import { Monitor, Smartphone, ShieldAlert } from 'lucide-react'
 import { hasSupabase } from '@/net/createTransport'
+import { supabaseProblems } from '@/net/supabaseConfig'
+import { cn } from '@/lib/cn'
 
 /**
  * Schermata di ingresso: smista verso i due ruoli.
@@ -9,6 +11,8 @@ import { hasSupabase } from '@/net/createTransport'
  * distinguibili a colpo d'occhio da entrambe le distanze.
  */
 export function Home() {
+  const problems = supabaseProblems()
+
   return (
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col items-center justify-center gap-10 p-6">
       <header className="text-center">
@@ -42,14 +46,39 @@ export function Home() {
         </Link>
       </div>
 
+      {/*
+        La diagnostica è esplicita di proposito: la modalità locale funziona
+        benissimo fra schede dello stesso browser, quindi dal comportamento è
+        impossibile accorgersi che i telefoni non si collegheranno mai.
+      */}
+      {problems.length > 0 && (
+        <div className="flex w-full max-w-xl flex-col gap-3">
+          {problems.map((problem, i) => (
+            <div
+              key={i}
+              className={cn(
+                'flex items-start gap-3 rounded-xl border p-4 text-sm',
+                problem.severity === 'error'
+                  ? 'border-blood/60 bg-blood/15 text-blood-bright'
+                  : 'border-mustard/50 bg-mustard/10 text-mustard',
+              )}
+            >
+              <ShieldAlert className="mt-0.5 size-5 shrink-0" strokeWidth={1.8} />
+              <p>{problem.message}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {!hasSupabase() && (
         <div className="deco-panel flex max-w-xl items-start gap-3 p-4 text-sm">
           <ShieldAlert className="text-gold mt-0.5 size-5 shrink-0" strokeWidth={1.6} />
           <p className="text-paper-dim">
-            <strong className="text-paper">Modalità locale.</strong> Manca la configurazione realtime, quindi
-            il gioco funziona solo fra schede dello stesso browser — utile per provarlo subito. Per giocare
-            davvero con i telefoni servono le variabili{' '}
-            <code className="bg-ink-4 rounded px-1 py-0.5 text-xs">VITE_SUPABASE_*</code>: vedi il README.
+            <strong className="text-paper">Modalità locale.</strong> Il gioco funziona solo fra schede dello
+            stesso browser — utile per provarlo, inutile con i telefoni. Servono{' '}
+            <code className="bg-ink-4 rounded px-1 py-0.5 text-xs">VITE_SUPABASE_URL</code> e{' '}
+            <code className="bg-ink-4 rounded px-1 py-0.5 text-xs">VITE_SUPABASE_PUBLISHABLE_KEY</code>, poi{' '}
+            <strong className="text-paper">riavvia il server</strong>: Vite legge il .env solo all&apos;avvio.
           </p>
         </div>
       )}

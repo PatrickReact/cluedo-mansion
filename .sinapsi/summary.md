@@ -13,36 +13,35 @@ public/ … 32 files, none ranked
 scripts/gen-assets.mjs                        2026-08-19
 src/
   bots/
-    bots.test.ts                              2026-08-19  edited this session
-    policy.ts                                 2026-08-19  edited this session
+    bots.test.ts                              2026-08-19
+    policy.ts                                 2026-08-19
   data/ … 0 files, none ranked
   engine/
     board/
       board.ts                                2026-08-19
-    engine.test.ts                            2026-08-19  edited this session
-    reducer.ts                                2026-08-19  edited this session
+    engine.test.ts                            2026-08-19
+    reducer.ts                                2026-08-19
   hooks/ … 2 files, none ranked
-  lib/ … 4 files, none ranked
-  net/ … 6 files, none ranked
-  routes/
-    phone/
-      ActionPanel.tsx                         2026-08-19  edited this session
-      Notebook.tsx                            2026-08-19  edited this session
-      PhoneJoin.tsx                           2026-08-19  edited this session
-    tv/
-      TvSidebar.tsx                           2026-08-19  edited this session
+  lib/
+    crypto.test.ts                            2026-08-19  edited this session
+    crypto.ts                                 2026-08-19  edited this session
+  net/
+    supabaseConfig.ts                         2026-08-19  edited this session
+    supabaseTransport.ts                      2026-08-19  edited this session
+  routes/phone/
+    ActionPanel.tsx                           2026-08-19
   store/
-    hostStore.ts                              2026-08-19  edited this session
+    hostStore.ts                              2026-08-19
     playerStore.ts                            2026-08-19  edited this session
   test/ … 0 files, none ranked
   ui/ … 3 files, none ranked
-  … 4 more, none ranked
-.prettierignore                               2026-08-19  edited this session
+  vite-env.d.ts                               2026-08-19  edited this session
+  … 3 more, none ranked
+.env                                          2026-08-19  edited this session
 README.md                                     2026-08-19  edited this session
 package-lock.json                             2026-08-19
-vitest.config.ts                              2026-08-19  edited this session
-… 14 more, none ranked
-# 18 of 109 files are on this map — the rest are unranked, not hidden.
+… 15 more, none ranked
+# 19 of 111 files are on this map — the rest are unranked, not hidden.
 ```
 <!-- sinapsi:end -->
 

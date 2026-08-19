@@ -1,10 +1,10 @@
+import { hasSupabaseConfig } from './supabaseConfig'
 import { LocalTransport } from './localTransport'
 import { SupabaseTransport } from './supabaseTransport'
 import type { Transport, TransportOptions } from './transport'
 
-/** true se le variabili d'ambiente Supabase sono configurate. */
-export const hasSupabase = (): boolean =>
-  Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)
+/** true se le variabili d'ambiente Supabase sono configurate e utilizzabili. */
+export const hasSupabase = (): boolean => hasSupabaseConfig()
 
 /**
  * Sceglie il trasporto in base all'ambiente.

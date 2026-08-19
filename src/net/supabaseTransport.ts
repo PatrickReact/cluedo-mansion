@@ -2,6 +2,7 @@ import { createClient, type RealtimeChannel, type SupabaseClient } from '@supaba
 import type { Action } from '@/engine/actions'
 import type { PrivateState, PublicState } from '@/engine/redact'
 import { privateChannelName, publicChannelName } from '@/lib/crypto'
+import { readSupabaseConfig } from './supabaseConfig'
 import { EVENT, PROTOCOL_VERSION, parseClientMessage } from './protocol'
 import type { ConnectionStatus, Transport, TransportOptions } from './transport'
 
@@ -21,6 +22,35 @@ import type { ConnectionStatus, Transport, TransportOptions } from './transport'
  * Serve solo il piano gratuito: nessuna tabella, nessuna riga scritta, solo
  * messaggi broadcast effimeri.
  */
+/** Nessuna sottoscrizione puo restare appesa: senza scadenza l'interfaccia si blocca in silenzio. */
+const SUBSCRIBE_TIMEOUT = 12_000
+
+/**
+ * Attende che un canale sia realmente sottoscritto.
+ *
+ * `subscribe()` di Supabase non restituisce una promessa e puo non richiamare
+ * mai il callback — rete assente, credenziali rifiutate, progetto in pausa.
+ * Aspettarlo senza scadenza significa lasciare l'utente davanti a un pulsante
+ * che non fa nulla, che e il modo peggiore di fallire.
+ */
+function awaitSubscribed(channel: RealtimeChannel, label: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`Timeout nella connessione al canale ${label}.`)),
+      SUBSCRIBE_TIMEOUT,
+    )
+    channel.subscribe((status, err) => {
+      if (status === 'SUBSCRIBED') {
+        clearTimeout(timer)
+        resolve()
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        clearTimeout(timer)
+        reject(new Error(`Canale ${label} non raggiungibile${err ? `: ${err.message}` : '.'}`))
+      }
+    })
+  })
+}
+
 export class SupabaseTransport implements Transport {
   readonly kind = 'supabase' as const
   readonly roomCode: string
@@ -51,10 +81,14 @@ export class SupabaseTransport implements Transport {
 
   private ensureClient(): SupabaseClient {
     if (this.client) return this.client
-    const url = import.meta.env.VITE_SUPABASE_URL
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-    if (!url || !key) throw new Error('Credenziali Supabase mancanti.')
-    this.client = createClient(url, key, {
+    const config = readSupabaseConfig()
+    if (!config) {
+      throw new Error(
+        'Credenziali Supabase mancanti o non valide: servono VITE_SUPABASE_URL e ' +
+          'VITE_SUPABASE_PUBLISHABLE_KEY (oppure VITE_SUPABASE_ANON_KEY).',
+      )
+    }
+    this.client = createClient(config.url, config.key, {
       realtime: { params: { eventsPerSecond: 20 } },
       auth: { persistSession: false, autoRefreshToken: false },
     })
@@ -66,7 +100,7 @@ export class SupabaseTransport implements Transport {
     this.setStatus('connecting')
 
     const client = this.ensureClient()
-    const name = await publicChannelName(this.roomCode)
+    const name = publicChannelName(this.roomCode)
     const channel = client.channel(name, {
       config: { broadcast: { self: false, ack: false } },
     })
@@ -87,22 +121,13 @@ export class SupabaseTransport implements Transport {
       })
     }
 
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Timeout di connessione al canale.')), 15000)
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          clearTimeout(timer)
-          this.setStatus('connected')
-          resolve()
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          clearTimeout(timer)
-          this.setStatus('error')
-          reject(new Error('Connessione al canale non riuscita.'))
-        } else if (status === 'CLOSED') {
-          this.setStatus('reconnecting')
-        }
-      })
-    })
+    try {
+      await awaitSubscribed(channel, 'pubblico')
+      this.setStatus('connected')
+    } catch (error) {
+      this.setStatus('error')
+      throw error
+    }
 
     this.publicChannel = channel
     if (role === 'client') this.requestSync(this.playerId ?? undefined)
@@ -128,7 +153,7 @@ export class SupabaseTransport implements Transport {
     if (this.privateChannel) return
 
     const client = this.ensureClient()
-    const name = await privateChannelName(this.roomCode, playerId)
+    const name = privateChannelName(this.roomCode, playerId)
     const channel = client.channel(name, { config: { broadcast: { self: false } } })
     const { events } = this.options
 
@@ -141,11 +166,7 @@ export class SupabaseTransport implements Transport {
       if (data?.message) events.onError?.(data.message)
     })
 
-    await new Promise<void>((resolve) => {
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') resolve()
-      })
-    })
+    await awaitSubscribed(channel, 'privato')
     this.privateChannel = channel
     this.requestSync(playerId)
   }
@@ -156,13 +177,9 @@ export class SupabaseTransport implements Transport {
     if (existing) return existing
 
     const client = this.ensureClient()
-    const name = await privateChannelName(this.roomCode, playerId)
+    const name = privateChannelName(this.roomCode, playerId)
     const channel = client.channel(name, { config: { broadcast: { self: false } } })
-    await new Promise<void>((resolve) => {
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') resolve()
-      })
-    })
+    await awaitSubscribed(channel, `privato di ${playerId}`)
     this.playerChannels.set(playerId, channel)
     return channel
   }
@@ -179,23 +196,28 @@ export class SupabaseTransport implements Transport {
   publishPrivate(playerId: string, state: PrivateState): void {
     this.seq += 1
     const seq = this.seq
-    void this.channelFor(playerId).then((ch) =>
-      ch.send({
-        type: 'broadcast',
-        event: EVENT.private,
-        payload: { t: 'private', v: PROTOCOL_VERSION, seq, state },
-      }),
-    )
+    void this.channelFor(playerId)
+      .then((ch) =>
+        ch.send({
+          type: 'broadcast',
+          event: EVENT.private,
+          payload: { t: 'private', v: PROTOCOL_VERSION, seq, state },
+        }),
+      )
+      // Un telefono irraggiungibile non deve fermare la partita degli altri.
+      .catch((error: unknown) => console.warn('[Cluedo] vista privata non recapitata:', error))
   }
 
   publishError(playerId: string, message: string): void {
-    void this.channelFor(playerId).then((ch) =>
-      ch.send({
-        type: 'broadcast',
-        event: EVENT.error,
-        payload: { t: 'error', v: PROTOCOL_VERSION, message },
-      }),
-    )
+    void this.channelFor(playerId)
+      .then((ch) =>
+        ch.send({
+          type: 'broadcast',
+          event: EVENT.error,
+          payload: { t: 'error', v: PROTOCOL_VERSION, message },
+        }),
+      )
+      .catch((error: unknown) => console.warn('[Cluedo] errore non recapitato:', error))
   }
 
   sendIntent(action: Action): void {

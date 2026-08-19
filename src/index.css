@@ -1,0 +1,195 @@
+@import 'tailwindcss';
+
+/*
+ * SISTEMA VISIVO — noir anni '30.
+ *
+ * Due schermi molto diversi condividono gli stessi token:
+ *  - la TV si guarda da 3 metri: testo grande, contrasti alti, niente dettagli
+ *    sottili che spariscono a distanza;
+ *  - il telefono si tocca: bersagli da 44px in su, tutto raggiungibile col
+ *    pollice, nessuna informazione che il vicino di divano possa sbirciare.
+ */
+
+@theme {
+  /* fondali */
+  --color-ink: #0b0a12;
+  --color-ink-2: #14121f;
+  --color-ink-3: #1e1b2e;
+  --color-ink-4: #2a2640;
+
+  /* superfici chiare */
+  --color-paper: #f4efe4;
+  --color-paper-dim: #cdc6b6;
+
+  /* accenti */
+  --color-gold: #c9a227;
+  --color-gold-dim: #8f7418;
+  --color-blood: #8c1428;
+  --color-blood-bright: #d1223f;
+
+  /* colori dei sei sospetti */
+  --color-scarlett: #e0364f;
+  --color-mustard: #e3a72c;
+  --color-white-pawn: #e8e6e1;
+  --color-green: #2fa15c;
+  --color-peacock: #3672d1;
+  --color-plum: #8b4fd0;
+
+  /* tabellone */
+  --color-corridor: #d8cdb4;
+  --color-corridor-alt: #cfc2a5;
+  --color-room: #2f2a44;
+  --color-room-edge: #b99b3f;
+  --color-cellar: #1a1728;
+
+  --font-display: Georgia, 'Times New Roman', serif;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --radius-card: 0.875rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-sans);
+    /* Su iOS impedisce il rimbalzo elastico durante il gioco. */
+    overscroll-behavior: none;
+  }
+
+  /* La TV non ha un cursore: nasconderlo evita la freccia parcheggiata. */
+  .tv-root {
+    cursor: none;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: 0.04em;
+  }
+
+  button {
+    font: inherit;
+    touch-action: manipulation;
+  }
+
+  /* Rispetta chi ha chiesto meno animazioni a livello di sistema. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Cornice art-deco con angoli smussati, il motivo ricorrente dell'interfaccia. */
+  .deco-panel {
+    position: relative;
+    background: linear-gradient(160deg, var(--color-ink-3), var(--color-ink-2));
+    border: 1px solid color-mix(in srgb, var(--color-gold) 35%, transparent);
+    clip-path: polygon(
+      14px 0,
+      calc(100% - 14px) 0,
+      100% 14px,
+      100% calc(100% - 14px),
+      calc(100% - 14px) 100%,
+      14px 100%,
+      0 calc(100% - 14px),
+      0 14px
+    );
+  }
+
+  .deco-divider {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-gold) 60%, transparent),
+      transparent
+    );
+  }
+
+  /* Pulsante primario del telefono: alto, pieno, impossibile da sbagliare. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    font-weight: 600;
+    transition:
+      transform 0.12s ease,
+      filter 0.12s ease;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+  }
+
+  .btn-primary {
+    background: linear-gradient(180deg, var(--color-gold), var(--color-gold-dim));
+    color: var(--color-ink);
+  }
+
+  .btn-danger {
+    background: linear-gradient(180deg, var(--color-blood-bright), var(--color-blood));
+    color: var(--color-paper);
+  }
+
+  .btn-ghost {
+    background: color-mix(in srgb, var(--color-paper) 8%, transparent);
+    border-color: color-mix(in srgb, var(--color-paper) 20%, transparent);
+    color: var(--color-paper);
+  }
+
+  /* Evidenzia i bersagli raggiungibili sul tabellone. */
+  .reachable {
+    animation: pulse-reachable 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse-reachable {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes shake-hint {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-9deg);
+  }
+  75% {
+    transform: rotate(9deg);
+  }
+}
+
+.shake-hint {
+  animation: shake-hint 1.1s ease-in-out infinite;
+}

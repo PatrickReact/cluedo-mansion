@@ -1,0 +1,71 @@
+{
+  "env": {
+    "ENABLE_TOOL_SEARCH": "false"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "sinapsi hook post-tool-use",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write|MultiEdit"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "sinapsi hook doc-guard",
+            "type": "command"
+          }
+        ],
+        "matcher": "Read|Edit|Write|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "sinapsi hook pre-tool-use",
+            "type": "command"
+          }
+        ],
+        "matcher": "Grep|Glob|Read"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "sinapsi hook session-start",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "sinapsi hook stop",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "sinapsi hook user-prompt-submit",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": ["Bash(sinapsi:*)", "mcp__sinapsi__*"]
+  }
+}

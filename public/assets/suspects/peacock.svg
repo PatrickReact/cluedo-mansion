@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" width="200" height="260">
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3672d1" />
+      <stop offset="100%" stop-color="#173e7d" />
+    </linearGradient>
+    <radialGradient id="vig" cx="50%" cy="38%" r="70%">
+      <stop offset="60%" stop-color="#000" stop-opacity="0" />
+      <stop offset="100%" stop-color="#000" stop-opacity="0.45" />
+    </radialGradient>
+  </defs>
+  <rect width="200" height="260" rx="10" fill="url(#bg)" />
+
+  <!-- alone dietro la figura -->
+  <ellipse cx="100" cy="118" rx="62" ry="66" fill="#000" opacity="0.16" />
+
+  <!-- spalle -->
+  <path d="M 34 260 C 34 196 62 168 100 168 C 138 168 166 196 166 260 Z" fill="#16233d" opacity="0.92" />
+  <!-- colletto -->
+  <path d="M 100 168 L 82 210 L 100 226 L 118 210 Z" fill="#f4efe4" opacity="0.85" />
+  <!-- testa -->
+  <ellipse cx="100" cy="118" rx="40" ry="46" fill="#16233d" />
+  <!-- luce laterale -->
+  <path d="M 100 72 A 40 46 0 0 1 100 164 Z" fill="#fff" opacity="0.07" />
+
+  <rect width="200" height="260" rx="10" fill="url(#vig)" />
+  <path d="M 16 2 H 184 L 198 16 V 244 L 184 258 H 16 L 2 244 V 16 Z" fill="none" stroke="#c9a227" stroke-width="2.5" />
+  <circle cx="100" cy="34" r="17" fill="#0b0a12" opacity="0.55" />
+  <text x="100" y="41" font-family="Georgia,serif" font-size="20" font-weight="bold"
+        text-anchor="middle" fill="#c9a227">P</text>
+
+</svg>

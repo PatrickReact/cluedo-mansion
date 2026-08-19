@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 88" width="88" height="88" fill="none">
+<g color="#f4efe4">
+  <path d="M 20 14 C 54 14 54 34 30 34 C 8 34 8 54 34 54 C 58 54 58 72 24 72"
+        stroke="currentColor" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M 20 14 C 54 14 54 34 30 34 C 8 34 8 54 34 54 C 58 54 58 72 24 72"
+        stroke="#0b0a12" stroke-width="2.5" fill="none" stroke-dasharray="5 7" opacity="0.45"/></g>
+</svg>

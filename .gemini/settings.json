@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "BeforeAgent": [
+      {
+        "hooks": [
+          {
+            "command": "sinapsi hook user-prompt-submit",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "sinapsi hook session-start",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

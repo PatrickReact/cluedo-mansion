@@ -12,33 +12,37 @@ practices/
 public/ … 32 files, none ranked
 scripts/gen-assets.mjs                        2026-08-19
 src/
+  bots/
+    bots.test.ts                              2026-08-19  edited this session
+    policy.ts                                 2026-08-19  edited this session
   data/ … 0 files, none ranked
   engine/
     board/
       board.ts                                2026-08-19
-    constants.ts                              2026-08-19
-    engine.test.ts                            2026-08-19
-    reducer.ts                                2026-08-19
-  hooks/
-    useShake.ts                               2026-08-19
+    engine.test.ts                            2026-08-19  edited this session
+    reducer.ts                                2026-08-19  edited this session
+  hooks/ … 2 files, none ranked
   lib/ … 4 files, none ranked
   net/ … 6 files, none ranked
-  routes/phone/
-    ActionPanel.tsx                           2026-08-19
+  routes/
+    phone/
+      ActionPanel.tsx                         2026-08-19  edited this session
+      Notebook.tsx                            2026-08-19  edited this session
+      PhoneJoin.tsx                           2026-08-19  edited this session
+    tv/
+      TvLobby.tsx                             2026-08-19  edited this session
+      TvScreen.tsx                            2026-08-19  edited this session
+      TvSidebar.tsx                           2026-08-19  edited this session
   store/
-    hostStore.ts                              2026-08-19
-    playerStore.ts                            2026-08-19
+    hostStore.ts                              2026-08-19  edited this session
+    playerStore.ts                            2026-08-19  edited this session
   test/ … 0 files, none ranked
-  ui/
-    Board.tsx                                 2026-08-19
-    Loading.tsx                               2026-08-19
-  main.tsx                                    2026-08-19
-  … 3 more, none ranked
-.oxlintrc.json                                2026-08-19
-README.md                                     2026-08-19
+  ui/ … 3 files, none ranked
+  … 4 more, none ranked
+README.md                                     2026-08-19  edited this session
 package-lock.json                             2026-08-19
-… 14 more, none ranked
-# 17 of 104 files are on this map — the rest are unranked, not hidden.
+… 16 more, none ranked
+# 18 of 109 files are on this map — the rest are unranked, not hidden.
 ```
 <!-- sinapsi:end -->
 

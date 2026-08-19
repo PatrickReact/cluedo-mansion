@@ -3,7 +3,7 @@ import type { Action } from '@/engine/actions'
 import type { SuspectId } from '@/engine/constants'
 import type { PrivateState, PublicState } from '@/engine/redact'
 import type { CardKey } from '@/engine/types'
-import { computeNotes, type ColumnId, type Mark, type NotesResult } from '@/engine/notes'
+import { computeNotes, notesContext, type ColumnId, type Mark, type NotesResult } from '@/engine/notes'
 import { createTransport, type ConnectionStatus, type Transport } from '@/net/createTransport'
 import { newPlayerId, normalizeRoomCode } from '@/lib/roomCode'
 
@@ -185,21 +185,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   notes() {
     const { publicState, privateState, playerId, seen, manualNotes } = get()
     if (!publicState) return null
-    // computeNotes lavora sullo stato completo: qui basta la parte pubblica
-    // piu le informazioni private del giocatore.
-    return computeNotes(
-      {
-        ...publicState,
-        players: publicState.players.map((p) => ({ ...p, hand: [] })),
-        solution: null,
-      } as never,
-      {
-        viewerId: playerId,
-        hand: privateState?.hand ?? [],
-        seen,
-        manual: manualNotes,
-      },
-    )
+    // Il deduttore riceve solo il contesto pubblico piu cio che questo
+    // giocatore ha visto: non esiste un percorso per cui possa vedere altro.
+    return computeNotes(notesContext(publicState), {
+      viewerId: playerId,
+      hand: privateState?.hand ?? [],
+      seen,
+      manual: manualNotes,
+    })
   },
 }))
 

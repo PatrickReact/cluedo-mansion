@@ -20,6 +20,8 @@ un test automatico.
 - [Architettura](#architettura)
 - [Il tabellone](#il-tabellone)
 - [Le regole implementate](#le-regole-implementate)
+- [Gli avversari automatici](#gli-avversari-automatici)
+- [Le carte del gioco: ci sono tutte?](#le-carte-del-gioco-ci-sono-tutte)
 - [Asset grafici](#asset-grafici)
 - [Sviluppo](#sviluppo)
 - [Limiti noti](#limiti-noti)
@@ -162,7 +164,7 @@ può barare perché nessun client calcola le regole.
 
 ```
 src/
-├── engine/              motore puro, zero React, 62 test
+├── engine/              motore puro, zero React
 │   ├── constants.ts       sospetti, armi, stanze
 │   ├── board/
 │   │   ├── map.ts           IL TABELLONE, in ASCII — unica fonte di verità
@@ -176,6 +178,10 @@ src/
 │   ├── transport.ts       l'interfaccia
 │   ├── localTransport.ts    BroadcastChannel (sviluppo, un solo browser)
 │   └── supabaseTransport.ts Supabase Realtime (produzione)
+├── bots/                avversari automatici, algoritmici e deterministici
+│   ├── belief.ts          modello probabilistico: campionamento dei mondi coerenti
+│   ├── policy.ts          scelta della mossa per guadagno di informazione
+│   └── driver.ts          li collega all'host passando SOLO le viste redatte
 ├── store/               hostStore (TV) e playerStore (telefono)
 ├── routes/tv/           schermo grande
 ├── routes/phone/        controller
@@ -266,6 +272,103 @@ e non sovrascrivono mai una deduzione certa.
 
 ---
 
+## Gli avversari automatici
+
+Il regolamento vuole **almeno tre giocatori**, e resta così: abbassare quel minimo non renderebbe il
+gioco praticabile in due, lo renderebbe banale. In due le 18 carte si dividono 9 e 9 e la busta si
+deduce in pochi turni; da soli le riceveresti tutte. Quindi i posti mancanti si riempiono con
+avversari veri, che tengono carte, confutano e possono vincere.
+
+Si aggiungono dalla lobby sulla TV: ogni posto libero ha un pulsante **Bot**, e il livello si cambia
+toccandolo.
+
+### Non sbirciano. Mai.
+
+È una proprietà della struttura del codice, non una promessa nei commenti.
+
+Il driver dei bot gira sull'host, dove c'è lo stato completo della partita — ma la funzione che
+decide la mossa non lo riceve mai. Le vengono passati soltanto `toPublicState(game)` e
+`toPrivateState(game, botId)`: **esattamente i due oggetti che arrivano al telefono di quel
+giocatore**. Non esiste un campo da cui un bot possa risalire alle mani altrui o alla busta.
+
+Due test lo verificano dall'esterno: si cambia la soluzione nascosta lasciando identiche le
+informazioni pubbliche, e si cambia la mano di un altro giocatore. In entrambi i casi la mossa del
+bot deve restare **identica**. Se un giorno qualcuno passasse lo stato intero per comodità, quei test
+si rompono.
+
+### Come ragionano
+
+Tutto algoritmico e deterministico. Nessun modello addestrato, nessuna chiamata esterna, nessuna IA:
+solo conteggi.
+
+1. **Deduzione esatta.** I bot usano `computeNotes`, lo _stesso_ solver a punto fisso che alimenta il
+   taccuino umano — una sola implementazione delle regole di deduzione, altrimenti un bot e una
+   persona potrebbero trarre conclusioni diverse dagli stessi fatti.
+2. **Stima statistica sull'incerto.** Ciò che non è deducibile con certezza non è nemmeno
+   equiprobabile. Il bot campiona migliaia di distribuzioni complete delle carte compatibili con
+   tutto quello che ha osservato, e conta: se la busta contiene il Candeliere nel 70% dei mondi
+   coerenti, quella è la sua probabilità. Contarli esattamente sarebbe #P-difficile — a inizio
+   partita sono dell'ordine di 6^18 — quindi si campiona.
+3. **Scelta per guadagno di informazione.** Il valore di un'ipotesi non è «quanto sospetto queste
+   carte», è **quanta incertezza toglie**. Il bot simula ogni ipotesi possibile su tutti i mondi
+   campionati, misura la riduzione attesa di entropia sulla distribuzione della soluzione e sceglie
+   la domanda che divide meglio i mondi ancora in piedi.
+
+Il movimento segue la stessa logica: sospetto e arma si possono nominare da qualunque stanza, la
+carta stanza no — per metterla alla prova bisogna esserci dentro. Quindi il bot valuta le stanze per
+quanto è ancora ignota la loro carta, e se la migliore non è a portata **spende il turno per
+avvicinarsi** invece di entrare nella prima che capita.
+
+È deterministico: il campionamento parte da un flusso derivato dal seed della partita, separato da
+quello dei dadi. Stessa partita, stesse decisioni — un bug di un bot si riproduce invece di svanire.
+
+### I livelli
+
+Cambiano quanto a fondo il bot analizza, **non cosa vede**. L'informazione disponibile è identica a
+tutti i livelli, e identica a quella di una persona.
+
+| Livello       | Mondi campionati | Scelta dell'ipotesi                        | Accusa        |
+| ------------- | ---------------- | ------------------------------------------ | ------------- |
+| **Facile**    | 250              | a caso fra le carte non ancora localizzate | solo se certo |
+| **Medio**     | 1 200            | massima incertezza dell'esito              | da 98% in su  |
+| **Difficile** | 3 000            | massimo guadagno di informazione atteso    | da 93% in su  |
+
+Dal livello medio in su il bot confuta anche in modo accorto: se può scegliere, rimostra una carta
+che a quel giocatore aveva già mostrato, per non regalargliene una seconda.
+
+Misurato su cinque partite a parità di seed (stesse carte, stessi dadi, stesso tavolo):
+
+| Livello   | Partite chiuse | Turni medi | Ipotesi | Accuse errate |
+| --------- | -------------- | ---------- | ------- | ------------- |
+| Facile    | 5/5            | 47.8       | ~20     | **0**         |
+| Medio     | 5/5            | 37.4       | ~15     | **0**         |
+| Difficile | 5/5            | **28.2**   | ~13     | **0**         |
+
+Zero accuse errate a ogni livello: un bot rischia solo sopra la propria soglia, e nei test
+un'accusa dichiarata certa che risultasse sbagliata fa fallire la suite.
+
+---
+
+## Le carte del gioco: ci sono tutte?
+
+Sì. Il **Cluedo classico ha esattamente 21 carte** — 6 sospetti, 6 armi, 9 stanze — e nessun altro
+tipo. Non esistono carte speciali, bonus o evento nel regolamento standard, ed è quello implementato
+qui, per intero.
+
+Le carte speciali che si trovano in giro appartengono a **edizioni derivate**, non al gioco base:
+
+| Edizione                                        | Cosa aggiunge                                                                                                                                                                                                                                                                             |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Clue: Discover the Secrets** (2008)           | Un mazzo _Intrigue_: carte **Keeper** (poteri come muoversi ovunque, sottrarsi a una rivelazione, turno extra, sbirciare una carta) e 8 carte **Clock** — le prime sette non fanno nulla, chi pesca l'ottava viene ucciso ed esce. Rinomina anche l'ipotesi in «Rumor». Fuori produzione. |
+| **Clue Master Detective / Super Cluedo** (1988) | Non carte speciali, ma un mazzo più grande: 10 sospetti, 8 armi, 12 stanze.                                                                                                                                                                                                               |
+| **Super Cluedo Challenge**                      | 9 sospetti e 9 armi, con portacarte a caselle colorate e numerate.                                                                                                                                                                                                                        |
+| **Edizioni 2016 e 2023**                        | Cambiano i personaggi (Dr. Orchid, Chef White) ma restano sulle 21 carte: nessuna carta speciale.                                                                                                                                                                                         |
+
+Quindi rispetto al Cluedo classico non manca nulla. Le varianti sono giochi diversi: aggiungerle
+significherebbe cambiare tabellone e regolamento, non aggiungere carte a questo.
+
+---
+
 ## Asset grafici
 
 Tutti gli asset in `public/assets` sono **originali**, generati proceduralmente in SVG:
@@ -290,7 +393,7 @@ si modificano le costanti in cima allo script e si rigenera.
 npm run dev          # server di sviluppo, in ascolto anche sulla LAN
 npm run build        # build di produzione
 npm run preview      # serve la build
-npm test             # 62 test: regole, tabellone, rete, privacy
+npm test             # 81 test: regole, tabellone, rete, privacy, bot
 npm run test:watch
 npm run test:cov     # copertura del motore
 npm run lint         # oxlint
@@ -337,6 +440,9 @@ Su Vercel il problema non si pone: il percorso di build è pulito.
 
 **Altri limiti:**
 
+- Con molti bot al tavolo è la TV a calcolarne le mosse: ~130 ms a decisione al livello difficile,
+  dentro la pausa che comunque serve perché il tavolo segua. Su un browser di smart TV datato meglio
+  restare su _medio_.
 - La TV deve restare aperta: è lei l'host. Chiuderla ferma la partita (che però riprende ricaricando).
 - Una sola partita per browser sulla TV: lo stato salvato è unico.
 - `turnTimeLimit` è nel modello ma non ancora esposto nell'interfaccia.

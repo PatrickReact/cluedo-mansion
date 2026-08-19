@@ -7,7 +7,7 @@ import { createRng, rollDie, shuffle } from './rng'
 import { createGame, dealCards } from './setup'
 import { MAX_PLAYERS, MIN_PLAYERS, currentPlayer, legalMoves, reduce } from './reducer'
 import { toPrivateState, toPublicState } from './redact'
-import { computeNotes, ENVELOPE, expectedHandSizes } from './notes'
+import { computeNotes, ENVELOPE, expectedHandSizes, notesContext } from './notes'
 import type { Action } from './actions'
 import type { GameState, Player } from './types'
 
@@ -616,7 +616,7 @@ describe('taccuino deduttivo', () => {
   it('marca come mie le carte in mano e non degli altri', () => {
     const s = started(3)
     const hand = [suspectCard('plum'), weaponCard('rope')]
-    const notes = computeNotes(s, { viewerId: 'p0', hand, seen: {}, manual: {} })
+    const notes = computeNotes(notesContext(s), { viewerId: 'p0', hand, seen: {}, manual: {} })
     expect(notes.grid.p0?.[suspectCard('plum')]).toBe('has')
     expect(notes.grid.p1?.[suspectCard('plum')]).toBe('not')
     expect(notes.grid[ENVELOPE]?.[suspectCard('plum')]).toBe('not')
@@ -636,7 +636,7 @@ describe('taccuino deduttivo', () => {
     expect(s.history.at(-1)?.passed).toEqual(['p1', 'p2'])
 
     const hand = s.players.find((p) => p.id === 'p0')?.hand ?? []
-    const notes = computeNotes(s, { viewerId: 'p0', hand, seen: {}, manual: {} })
+    const notes = computeNotes(notesContext(s), { viewerId: 'p0', hand, seen: {}, manual: {} })
 
     // Nessuno ha confutato: ne p1 ne p2 hanno le tre carte nominate.
     for (const pid of ['p1', 'p2']) {
@@ -659,7 +659,7 @@ describe('taccuino deduttivo', () => {
     s = { ...s, history: [{ ...rec, passed: [], disprovedBy: 'p1' }] }
 
     // Chi guarda e p2 e sa gia di avere plum e rope: resta solo la biblioteca.
-    const notes = computeNotes(s, {
+    const notes = computeNotes(notesContext(s), {
       viewerId: 'p2',
       hand: [suspectCard('plum'), weaponCard('rope')],
       seen: {},
@@ -671,7 +671,7 @@ describe('taccuino deduttivo', () => {
   it('i segni manuali non sovrascrivono le deduzioni certe', () => {
     const s = started(3)
     const hand = [suspectCard('plum')]
-    const notes = computeNotes(s, {
+    const notes = computeNotes(notesContext(s), {
       viewerId: 'p0',
       hand,
       seen: {},
@@ -684,7 +684,7 @@ describe('taccuino deduttivo', () => {
 
   it('calcola le dimensioni delle mani anche quando sono diseguali', () => {
     const s = started(4)
-    const sizes = expectedHandSizes(s)
+    const sizes = expectedHandSizes(notesContext(s))
     expect([...sizes.values()].reduce((a, b) => a + b, 0)).toBe(18)
     for (const p of s.players) expect(sizes.get(p.id)).toBe(p.hand.length)
   })

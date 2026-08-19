@@ -80,6 +80,7 @@ export function TvScreen() {
           connected={connected}
           transportKind={transportKind}
           onStart={() => dispatch({ type: 'START_GAME' })}
+          onAction={dispatch}
         />
       </div>
     )
@@ -87,7 +88,7 @@ export function TvScreen() {
 
   const currentSuspect: SuspectId | null =
     publicState.turnOrder[publicState.turnIndex % publicState.turnOrder.length] ?? null
-  const currentPlayer = publicState.players.find((p) => p.suspect === currentSuspect && !p.isNpc)
+  const currentPlayer = publicState.players.find((p) => p.suspect === currentSuspect)
 
   return (
     <div className="tv-root relative flex h-dvh gap-6 overflow-hidden p-6">

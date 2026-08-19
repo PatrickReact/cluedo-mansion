@@ -22,6 +22,22 @@ export const ActionSchema = z.discriminatedUnion('type', [
     suspect: suspectId,
   }),
   z.object({ type: z.literal('LEAVE'), playerId: z.string() }),
+  /**
+   * Aggiunge un avversario automatico. L'id arriva da fuori perche `reduce`
+   * deve restare puro: la TV lo genera con nanoid prima di inviare l'intento.
+   */
+  z.object({
+    type: z.literal('ADD_BOT'),
+    playerId: z.string().min(1).max(64),
+    suspect: suspectId,
+    level: z.enum(['facile', 'medio', 'difficile']),
+  }),
+  z.object({ type: z.literal('REMOVE_BOT'), playerId: z.string() }),
+  z.object({
+    type: z.literal('SET_BOT_LEVEL'),
+    playerId: z.string(),
+    level: z.enum(['facile', 'medio', 'difficile']),
+  }),
   z.object({ type: z.literal('SET_CONNECTED'), playerId: z.string(), connected: z.boolean() }),
   z.object({ type: z.literal('RENAME'), playerId: z.string(), name: z.string().trim().min(1).max(24) }),
   z.object({

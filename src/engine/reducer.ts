@@ -7,7 +7,16 @@ import type { Position } from './board'
 import { cardLabel, matchingCards } from './cards'
 import { dealCards, placeWeapons, seatedTurnOrder } from './setup'
 import { rollDie } from './rng'
-import type { CardKey, GameState, LogEntry, Player, Solution, Suggestion, SuggestionRecord } from './types'
+import type {
+  BotLevel,
+  CardKey,
+  GameState,
+  LogEntry,
+  Player,
+  Solution,
+  Suggestion,
+  SuggestionRecord,
+} from './types'
 
 /**
  * Dentro `produce` immer consegna una bozza mutabile: gli helper interni
@@ -22,7 +31,7 @@ const draftPlayerById = (d: GameDraft, id: string): PlayerDraft | undefined =>
 const draftCurrentPlayer = (d: GameDraft): PlayerDraft | undefined => {
   if (d.turnOrder.length === 0) return undefined
   const suspect = d.turnOrder[d.turnIndex % d.turnOrder.length]
-  return suspect ? d.players.find((p) => p.suspect === suspect && !p.isNpc) : undefined
+  return suspect ? d.players.find((p) => p.suspect === suspect) : undefined
 }
 
 export const MIN_PLAYERS = 3
@@ -43,7 +52,7 @@ export const currentSuspect = (s: GameState): SuspectId | null =>
 
 export const currentPlayer = (s: GameState): Player | undefined => {
   const suspect = currentSuspect(s)
-  return suspect ? s.players.find((p) => p.suspect === suspect && !p.isNpc) : undefined
+  return suspect ? s.players.find((p) => p.suspect === suspect) : undefined
 }
 
 export const isCurrentPlayer = (s: GameState, playerId: string): boolean => currentPlayer(s)?.id === playerId
@@ -90,9 +99,8 @@ export function canSuggestWithoutRolling(s: GameState, player: Player): boolean 
 
 /** Coda di confutazione: in senso orario a partire da chi ha ipotizzato. */
 function buildDisproveQueue(s: GameState, suggesterId: string): string[] {
-  const humans = s.players.filter((p) => !p.isNpc)
   const order = s.turnOrder
-    .map((suspect) => humans.find((p) => p.suspect === suspect))
+    .map((suspect) => s.players.find((p) => p.suspect === suspect))
     .filter((p): p is Player => Boolean(p))
   const start = order.findIndex((p) => p.id === suggesterId)
   if (start < 0) return []
@@ -190,14 +198,14 @@ function advanceDisprove(
 
 /** Passa il turno al giocatore successivo non eliminato. */
 function nextTurn(draft: GameDraft): void {
-  const humans = draft.players.filter((p) => !p.isNpc)
-  const alive = humans.filter((p) => !p.eliminated)
+  const seats = draft.players
+  const alive = seats.filter((p) => !p.eliminated)
 
   if (alive.length === 0) {
     draft.phase = { kind: 'game_over', winnerId: null, solution: draft.solution as Solution }
     return
   }
-  if (alive.length === 1 && humans.length > 1) {
+  if (alive.length === 1 && seats.length > 1) {
     const winner = alive[0] as PlayerDraft
     pushLog(draft, {
       kind: 'system',
@@ -279,7 +287,7 @@ export function reduce(state: GameState, action: Action, now = 0): ReduceResult 
           id: action.playerId,
           name: action.name,
           suspect: action.suspect as SuspectId,
-          isNpc: false,
+          bot: null,
           connected: true,
           eliminated: false,
           hasAccused: false,
@@ -291,6 +299,50 @@ export function reduce(state: GameState, action: Action, now = 0): ReduceResult 
           actorId: player.id,
           text: player.name + ' entra nella magione come ' + SUSPECT_BY_ID[player.suspect].name + '.',
         })
+        return
+      }
+
+      case 'ADD_BOT': {
+        if (draft.phase.kind !== 'lobby') return fail('I bot si aggiungono prima di iniziare.')
+        if (draft.players.length >= MAX_PLAYERS) {
+          return fail('Partita al completo: massimo ' + MAX_PLAYERS + ' giocatori.')
+        }
+        if (draft.players.some((p) => p.suspect === action.suspect)) {
+          return fail('Personaggio gia occupato.')
+        }
+        const bot: PlayerDraft = {
+          id: action.playerId,
+          name: SUSPECT_BY_ID[action.suspect as SuspectId].shortName,
+          suspect: action.suspect as SuspectId,
+          bot: action.level as BotLevel,
+          connected: true,
+          eliminated: false,
+          hasAccused: false,
+          hand: [],
+        }
+        draft.players.push(bot)
+        pushLog(draft, {
+          kind: 'system',
+          actorId: bot.id,
+          text: SUSPECT_BY_ID[bot.suspect].name + ' entra come avversario automatico (' + action.level + ').',
+        })
+        return
+      }
+
+      case 'REMOVE_BOT': {
+        if (draft.phase.kind !== 'lobby') return fail('I bot si tolgono prima di iniziare.')
+        const target = draftPlayerById(draft, action.playerId)
+        if (!target) return fail('Giocatore sconosciuto.')
+        if (!target.bot) return fail('Questo posto e occupato da una persona.')
+        draft.players = draft.players.filter((p) => p.id !== action.playerId)
+        return
+      }
+
+      case 'SET_BOT_LEVEL': {
+        if (draft.phase.kind !== 'lobby') return fail('Il livello si cambia prima di iniziare.')
+        const target = draftPlayerById(draft, action.playerId)
+        if (!target?.bot) return fail('Questo posto non e occupato da un bot.')
+        target.bot = action.level as BotLevel
         return
       }
 
@@ -332,12 +384,19 @@ export function reduce(state: GameState, action: Action, now = 0): ReduceResult 
 
       case 'START_GAME': {
         if (draft.phase.kind !== 'lobby') return fail('La partita e gia iniziata.')
-        const humans = draft.players.filter((p) => !p.isNpc)
-        if (humans.length < MIN_PLAYERS) return fail('Servono almeno ' + MIN_PLAYERS + ' giocatori.')
+        // Fedelta al regolamento: servono sempre tre posti al tavolo. I bot ne
+        // occupano di veri, quindi contano — ma un tavolo di soli bot non e una
+        // partita, e almeno un umano deve esserci.
+        if (draft.players.length < MIN_PLAYERS) {
+          return fail(
+            'Servono almeno ' + MIN_PLAYERS + ' giocatori: aggiungi un bot per completare il tavolo.',
+          )
+        }
+        if (!draft.players.some((p) => p.bot === null)) return fail('Serve almeno un giocatore umano.')
 
         draft.turnOrder = seatedTurnOrder(draft.players)
         const ordered = draft.turnOrder
-          .map((s) => humans.find((p) => p.suspect === s))
+          .map((s) => draft.players.find((p) => p.suspect === s))
           .filter((p): p is PlayerDraft => Boolean(p))
 
         const deal = dealCards(ordered.length, draft.rng)

@@ -21,12 +21,27 @@ export interface Solution {
 export type Suggestion = Solution
 export type Accusation = Solution
 
+/**
+ * Livello di un avversario automatico.
+ *
+ * Non e una scala di onnisicenza: TUTTI i livelli vedono esattamente quello
+ * che vedrebbe un umano al loro posto. Cambia quanto a fondo analizzano —
+ * numero di mondi campionati e sofisticazione della politica di gioco.
+ */
+export type BotLevel = 'facile' | 'medio' | 'difficile'
+
 export interface Player {
   readonly id: string
   readonly name: string
   readonly suspect: SuspectId
-  /** true per i personaggi non assegnati a nessuno (restano sul tabellone). */
-  readonly isNpc: boolean
+  /**
+   * Livello del bot che occupa il posto, oppure `null` per un umano.
+   *
+   * Un bot e un giocatore a tutti gli effetti: ha una mano, un turno, confuta
+   * e puo accusare. L'unica differenza e chi decide le sue azioni. Per questo
+   * nel resto del motore non esistono rami "se e un bot": non servono.
+   */
+  readonly bot: BotLevel | null
   readonly connected: boolean
   /** Fuori dai turni dopo un'accusa errata, ma continua a confutare. */
   readonly eliminated: boolean

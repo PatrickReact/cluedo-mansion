@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Skull, ScrollText } from 'lucide-react'
+import { Bot, Skull, ScrollText } from 'lucide-react'
 import { ROOM_BY_ID, SUSPECT_BY_ID } from '@/engine/constants'
 import type { PublicState } from '@/engine/redact'
 import { cn } from '@/lib/cn'
@@ -23,7 +23,7 @@ const KIND_STYLE: Record<string, string> = {
 /** Colonna destra della TV: chi gioca, cosa è successo, cosa hanno tirato. */
 export function TvSidebar({ state, currentPlayerId }: TvSidebarProps) {
   const logRef = useRef<HTMLUListElement>(null)
-  const players = state.players.filter((p) => !p.isNpc)
+  const players = state.players
   const dice = state.phase.kind === 'moving' ? state.phase.dice : null
 
   // La cronaca scorre da sola: nessuno può toccare la TV.
@@ -54,6 +54,12 @@ export function TvSidebar({ state, currentPlayerId }: TvSidebarProps) {
                   style={{ background: s.color }}
                 />
                 <span className="min-w-0 flex-1 truncate text-lg">{p.name}</span>
+                {/* Chi e al tavolo deve sapere quali posti sono automatici. */}
+                {p.bot && (
+                  <span className="text-paper-dim/70 shrink-0" title={`avversario automatico (${p.bot})`}>
+                    <Bot className="size-4" />
+                  </span>
+                )}
                 {p.eliminated && <Skull className="text-blood-bright size-4 shrink-0" />}
                 <span className="text-paper-dim shrink-0 text-sm tabular-nums">{p.handCount}</span>
                 {!p.connected && (

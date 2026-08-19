@@ -45,7 +45,7 @@ export function PhoneJoin({
     if (codeReady) onPeek(code)
   }, [code, codeReady, onPeek])
 
-  const taken = new Set(publicState?.players.filter((p) => !p.isNpc).map((p) => p.suspect) ?? [])
+  const taken = new Set(publicState?.players.map((p) => p.suspect) ?? [])
   const canSubmit = codeReady && name.trim().length > 0 && suspect !== null && !connecting
 
   return (

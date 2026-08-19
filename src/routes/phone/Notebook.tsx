@@ -26,7 +26,7 @@ interface NotebookProps {
  * confutato. Automatizzarle toglie la contabilità, non il ragionamento.
  */
 export function Notebook({ pub, notes, playerId, onToggle }: NotebookProps) {
-  const players = pub.players.filter((p) => !p.isNpc)
+  const players = pub.players
   const columns = useMemo(() => [...players.map((p) => p.id), ENVELOPE], [players])
 
   const groups = [
@@ -72,6 +72,7 @@ export function Notebook({ pub, notes, playerId, onToggle }: NotebookProps) {
                         style={{ maxWidth: '4.5rem' }}
                       >
                         {p?.id === playerId ? 'Tu' : p?.name}
+                        {p?.bot && <span className="text-paper-dim/50 block text-[0.6rem]">bot</span>}
                       </span>
                     )}
                   </th>

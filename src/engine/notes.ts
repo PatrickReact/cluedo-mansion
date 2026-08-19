@@ -1,7 +1,7 @@
 import { ROOM_IDS, SUSPECT_IDS, WEAPON_IDS } from './constants'
 import type { RoomId, SuspectId, WeaponId } from './constants'
 import { FULL_DECK, roomCard, solutionCards, suspectCard, weaponCard } from './cards'
-import type { CardKey, GameState, Player } from './types'
+import type { CardKey, SuggestionRecord } from './types'
 
 /**
  * IL TACCUINO DELL'INVESTIGATORE
@@ -36,6 +36,35 @@ export interface Constraint {
   readonly playerId: string
   readonly cards: readonly CardKey[]
 }
+
+/**
+ * Il minimo che serve per dedurre: chi siede al tavolo, in che ordine, e cosa
+ * e successo pubblicamente.
+ *
+ * Volutamente NON e un `GameState`: chi deduce non deve avere accesso alle
+ * mani altrui ne alla soluzione. Cosi la stessa funzione serve il taccuino sul
+ * telefono e il modello probabilistico dei bot, e nessuno dei due puo sbirciare
+ * perche non gli viene proprio consegnato nulla da sbirciare.
+ */
+export interface NotesContext {
+  readonly seats: readonly { readonly id: string; readonly suspect: SuspectId }[]
+  readonly turnOrder: readonly SuspectId[]
+  readonly history: readonly SuggestionRecord[]
+}
+
+/**
+ * Costruisce il contesto da uno stato di gioco o dalla sua vista pubblica:
+ * entrambi hanno gia questi tre campi, e nessuno dei due viene passato intero.
+ */
+export const notesContext = (source: {
+  readonly players: readonly { readonly id: string; readonly suspect: SuspectId }[]
+  readonly turnOrder: readonly SuspectId[]
+  readonly history: readonly SuggestionRecord[]
+}): NotesContext => ({
+  seats: source.players.map((p) => ({ id: p.id, suspect: p.suspect })),
+  turnOrder: source.turnOrder,
+  history: source.history,
+})
 
 export interface NotesInput {
   /** Il giocatore per cui si calcola il taccuino. */
@@ -79,9 +108,9 @@ const emptyColumn = (): Record<string, Mark> => {
  * Calcola il taccuino di un giocatore a partire dallo stato pubblico della
  * partita piu le sue informazioni private.
  */
-export function computeNotes(state: GameState, input: NotesInput): NotesResult {
-  const humans = state.players.filter((p) => !p.isNpc)
-  const columns: ColumnId[] = [...humans.map((p) => p.id), ENVELOPE]
+export function computeNotes(ctx: NotesContext, input: NotesInput): NotesResult {
+  const seats = ctx.seats
+  const columns: ColumnId[] = [...seats.map((p) => p.id), ENVELOPE]
 
   const grid: MutableGrid = {}
   const locked: Record<ColumnId, Record<string, boolean>> = {}
@@ -112,7 +141,7 @@ export function computeNotes(state: GameState, input: NotesInput): NotesResult {
 
   // 3. Chi non ha potuto confutare non ha nessuna delle tre carte nominate.
   const constraints: Constraint[] = []
-  for (const rec of state.history) {
+  for (const rec of ctx.history) {
     const named = solutionCards(rec.suggestion)
     for (const pid of rec.passed) {
       for (const card of named) setFact(pid, card, 'not')
@@ -126,7 +155,7 @@ export function computeNotes(state: GameState, input: NotesInput): NotesResult {
 
   // --- chiusura deduttiva a punto fisso -----------------------------------
 
-  const cardsPerPlayer = expectedHandSizes(state)
+  const cardsPerPlayer = expectedHandSizes(ctx)
 
   for (let pass = 0; pass < 12; pass++) {
     let changed = false
@@ -170,7 +199,7 @@ export function computeNotes(state: GameState, input: NotesInput): NotesResult {
     }
 
     // E. Mano piena: se un giocatore ha gia tutte le sue carte, non ha le altre.
-    for (const p of humans) {
+    for (const p of seats) {
       const size = cardsPerPlayer.get(p.id)
       if (size === undefined) continue
       const known = FULL_DECK.filter((c) => grid[p.id]?.[c] === 'has').length
@@ -227,19 +256,19 @@ function categoryEntries(): [string, readonly CardKey[]][] {
  * di turno e chi viene prima riceve la carta in piu. E informazione pubblica
  * (tutti vedono quante carte ha ciascuno) e chiude molte deduzioni.
  */
-export function expectedHandSizes(state: GameState): Map<string, number> {
-  const humans = state.players.filter((p) => !p.isNpc)
+export function expectedHandSizes(ctx: NotesContext): Map<string, number> {
+  const seats = ctx.seats
   const out = new Map<string, number>()
-  if (humans.length === 0) return out
+  if (seats.length === 0) return out
 
-  const ordered = state.turnOrder
-    .map((suspect) => humans.find((p) => p.suspect === suspect))
-    .filter((p): p is Player => Boolean(p))
-  const seats = ordered.length > 0 ? ordered : humans
+  const ordered = ctx.turnOrder
+    .map((suspect) => seats.find((p) => p.suspect === suspect))
+    .filter((p): p is NotesContext['seats'][number] => Boolean(p))
+  const order = ordered.length > 0 ? ordered : seats
 
   const total = 18
-  const base = Math.floor(total / seats.length)
-  const extra = total % seats.length
-  seats.forEach((p, i) => out.set(p.id, base + (i < extra ? 1 : 0)))
+  const base = Math.floor(total / order.length)
+  const extra = total % order.length
+  order.forEach((p, i) => out.set(p.id, base + (i < extra ? 1 : 0)))
   return out
 }

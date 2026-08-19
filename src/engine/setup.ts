@@ -107,8 +107,8 @@ export function createGame({ roomCode, seed, config }: CreateGameOptions): GameS
   }
 }
 
-/** Ordine di turno reale: solo i personaggi assegnati, in ordine canonico. */
+/** Ordine di turno reale: i personaggi occupati, in ordine canonico. */
 export function seatedTurnOrder(players: readonly Player[]): SuspectId[] {
-  const seated = new Set(players.filter((p) => !p.isNpc).map((p) => p.suspect))
+  const seated = new Set(players.map((p) => p.suspect))
   return TURN_ORDER.filter((s) => seated.has(s))
 }

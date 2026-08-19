@@ -8,6 +8,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // Una partita completa guidata dai bot fa centinaia di decisioni, ognuna
+    // con il suo campionamento: il default di 5 s non basta.
+    testTimeout: 120_000,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       provider: 'v8',

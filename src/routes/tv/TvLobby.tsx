@@ -1,9 +1,13 @@
 import QRCode from 'react-qr-code'
-import { Check, Users, Wifi, WifiOff } from 'lucide-react'
+import { Bot, Check, Users, Wifi, WifiOff, X } from 'lucide-react'
 import { SUSPECTS } from '@/engine/constants'
+import type { SuspectId } from '@/engine/constants'
 import { MIN_PLAYERS, MAX_PLAYERS } from '@/engine/reducer'
+import type { BotLevel } from '@/engine/types'
 import type { PublicState } from '@/engine/redact'
+import type { Action } from '@/engine/actions'
 import { joinUrl } from '@/lib/joinUrl'
+import { newPlayerId } from '@/lib/roomCode'
 import { cn } from '@/lib/cn'
 
 interface TvLobbyProps {
@@ -11,19 +15,39 @@ interface TvLobbyProps {
   readonly connected: boolean
   readonly transportKind: 'local' | 'supabase' | null
   readonly onStart: () => void
+  readonly onAction: (action: Action) => void
+}
+
+const LEVELS: readonly BotLevel[] = ['facile', 'medio', 'difficile']
+
+const LEVEL_STYLE: Record<BotLevel, string> = {
+  facile: 'bg-green/20 text-green border-green/40',
+  medio: 'bg-mustard/20 text-mustard border-mustard/40',
+  difficile: 'bg-blood/25 text-blood-bright border-blood/50',
 }
 
 /**
  * Lobby sulla TV.
  *
- * Un solo compito, fatto bene: far entrare le persone. Il QR e enorme perche
- * va inquadrato dal divano, e il codice testuale sta sotto in caratteri
- * altrettanto grandi per chi preferisce digitarlo.
+ * Due compiti: far entrare le persone, e completare il tavolo con avversari
+ * automatici quando le persone non bastano. Il minimo resta tre giocatori
+ * — quello e il regolamento — ma un posto puo essere occupato da un bot, cosi
+ * si gioca anche in due o da soli.
  */
-export function TvLobby({ state, connected, transportKind, onStart }: TvLobbyProps) {
+export function TvLobby({ state, connected, transportKind, onStart, onAction }: TvLobbyProps) {
   const url = joinUrl(state.roomCode)
-  const players = state.players.filter((p) => !p.isNpc)
-  const canStart = players.length >= MIN_PLAYERS
+  const players = state.players
+  const humans = players.filter((p) => p.bot === null)
+  const canStart = players.length >= MIN_PLAYERS && humans.length >= 1
+
+  const addBot = (suspect: SuspectId): void => {
+    onAction({ type: 'ADD_BOT', playerId: `bot_${newPlayerId()}`, suspect, level: 'medio' })
+  }
+
+  const cycleLevel = (playerId: string, current: BotLevel): void => {
+    const next = LEVELS[(LEVELS.indexOf(current) + 1) % LEVELS.length] as BotLevel
+    onAction({ type: 'SET_BOT_LEVEL', playerId, level: next })
+  }
 
   return (
     <div className="grid min-h-dvh grid-cols-[1fr_auto] gap-10 p-10">
@@ -59,10 +83,18 @@ export function TvLobby({ state, connected, transportKind, onStart }: TvLobbyPro
             </p>
           </div>
         </div>
+
+        {players.length < MIN_PLAYERS && (
+          <p className="text-paper-dim max-w-xl text-lg">
+            Servono <strong className="text-paper">{MIN_PLAYERS} giocatori</strong> come nel gioco da tavolo.
+            Se siete in meno, riempi i posti liberi con un avversario automatico: gioca con le stesse
+            informazioni di una persona, né più né meno.
+          </p>
+        )}
       </section>
 
-      {/* --- colonna destra: chi è entrato --- */}
-      <aside className="deco-panel flex w-[26rem] flex-col gap-5 p-8">
+      {/* --- colonna destra: chi è al tavolo --- */}
+      <aside className="deco-panel flex w-[30rem] flex-col gap-5 p-8">
         <h2 className="flex items-center gap-3 text-3xl">
           <Users className="text-gold size-7" strokeWidth={1.5} />
           Sospetti
@@ -72,28 +104,70 @@ export function TvLobby({ state, connected, transportKind, onStart }: TvLobbyPro
         </h2>
         <div className="deco-divider" />
 
-        <ul className="flex flex-1 flex-col gap-3">
+        <ul className="flex flex-1 flex-col gap-2.5">
           {SUSPECTS.map((s) => {
-            const taken = players.find((p) => p.suspect === s.id)
+            const seat = players.find((p) => p.suspect === s.id)
+            const level = seat?.bot ?? null
+
             return (
               <li
                 key={s.id}
                 className={cn(
-                  'flex items-center gap-4 rounded-xl border p-3 transition',
-                  taken ? 'border-gold/50 bg-ink-4/60' : 'border-paper/10 opacity-45',
+                  'flex items-center gap-3 rounded-xl border p-3 transition',
+                  seat ? 'border-gold/50 bg-ink-4/60' : 'border-paper/10 opacity-60',
                 )}
               >
                 <img
                   src={`/assets/tokens/${s.id}.svg`}
                   alt=""
-                  className="size-12 shrink-0"
-                  style={{ filter: taken ? 'none' : 'grayscale(1)' }}
+                  className="size-11 shrink-0"
+                  style={{ filter: seat ? 'none' : 'grayscale(1)' }}
                 />
+
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xl">{taken ? taken.name : s.name}</p>
-                  <p className="text-paper-dim truncate text-sm">{taken ? s.name : 'libero'}</p>
+                  <p className="truncate text-lg">{seat ? seat.name : s.name}</p>
+                  <p className="text-paper-dim truncate text-sm">
+                    {seat ? (level ? 'avversario automatico' : s.name) : 'posto libero'}
+                  </p>
                 </div>
-                {taken && <Check className="text-green size-6 shrink-0" strokeWidth={2.5} />}
+
+                {/* Posto libero: si puo riempire con un bot. */}
+                {!seat && (
+                  <button
+                    type="button"
+                    onClick={() => addBot(s.id)}
+                    className="btn btn-ghost !min-h-9 shrink-0 !px-3 !py-1 text-sm"
+                  >
+                    <Bot className="size-4" /> Bot
+                  </button>
+                )}
+
+                {/* Bot: livello ciclabile e rimozione. */}
+                {seat && level && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => cycleLevel(seat.id, level)}
+                      className={cn(
+                        'shrink-0 rounded-lg border px-3 py-1.5 text-sm capitalize transition',
+                        LEVEL_STYLE[level],
+                      )}
+                      title="Cambia livello"
+                    >
+                      {level}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onAction({ type: 'REMOVE_BOT', playerId: seat.id })}
+                      className="text-paper-dim hover:text-blood-bright shrink-0 p-1.5 transition"
+                      title="Togli il bot"
+                    >
+                      <X className="size-5" />
+                    </button>
+                  </>
+                )}
+
+                {seat && !level && <Check className="text-green size-6 shrink-0" strokeWidth={2.5} />}
               </li>
             )
           })}
@@ -105,7 +179,11 @@ export function TvLobby({ state, connected, transportKind, onStart }: TvLobbyPro
           disabled={!canStart}
           className="btn btn-primary w-full text-xl"
         >
-          {canStart ? 'Comincia il caso' : `Servono almeno ${MIN_PLAYERS} giocatori`}
+          {canStart
+            ? 'Comincia il caso'
+            : humans.length === 0
+              ? 'Serve almeno una persona'
+              : `Servono ${MIN_PLAYERS} giocatori`}
         </button>
       </aside>
     </div>

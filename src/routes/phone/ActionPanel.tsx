@@ -31,7 +31,7 @@ interface ActionPanelProps {
 export function ActionPanel({ pub, priv, playerId, send }: ActionPanelProps) {
   const me = pub.players.find((p) => p.id === playerId)
   const currentSuspect = pub.turnOrder[pub.turnIndex % pub.turnOrder.length] ?? null
-  const currentPlayer = pub.players.find((p) => p.suspect === currentSuspect && !p.isNpc)
+  const currentPlayer = pub.players.find((p) => p.suspect === currentSuspect)
   const isMyTurn = currentPlayer?.id === playerId
   const phase = pub.phase
 

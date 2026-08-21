@@ -112,9 +112,8 @@ Supabase ha rinominato le chiavi, il codice riconosce entrambe le convenzioni.
 > guardiano in `vite.config.ts` **interrompe la build** se ne trova una, invece di limitarsi ad
 > avvisare a danno fatto.
 
-Sono variabili `VITE_*`, quindi finiscono nel bundle e sono **pubbliche per costruzione**. Va bene:
-la chiave `anon` di Supabase è pensata per stare nel client, e questo progetto non scrive nulla sul
-database — usa solo i canali broadcast effimeri.
+Che la chiave pubblicabile finisca nel bundle è previsto e innocuo: è progettata per stare in un
+client, e questo progetto non scrive nulla sul database — usa solo messaggi broadcast effimeri.
 
 ### 4. Autodeploy
 
@@ -298,8 +297,25 @@ gioco praticabile in due, lo renderebbe banale. In due le 18 carte si dividono 9
 deduce in pochi turni; da soli le riceveresti tutte. Quindi i posti mancanti si riempiono con
 avversari veri, che tengono carte, confutano e possono vincere.
 
-Si aggiungono dalla lobby sulla TV: ogni posto libero ha un pulsante **Bot**, e il livello si cambia
-toccandolo.
+### Quanti bot
+
+Non c'è un numero da impostare, ed è voluto: i posti al tavolo sono sei, e il numero di bot è
+semplicemente quanti ne riempi. Chiedere «quanti bot vuoi?» significherebbe far fare a te un conto
+che il gioco sa già fare.
+
+Nella lobby sulla TV:
+
+- se il tavolo è **incompleto**, il pulsante grande diventa **«Completa il tavolo con N bot»** e li
+  aggiunge tutti in un tocco — N è quanto manca per arrivare a tre;
+- in alternativa ogni posto libero ha il suo pulsante **Bot**, per scegliere _quali_ personaggi
+  automatizzare;
+- il livello di ciascun bot si cambia toccando l'etichetta accanto al suo nome (facile → medio →
+  difficile);
+- una × lo toglie.
+
+Sopra i tre giocatori si possono aggiungere altri bot fino a sei, e si può mescolare liberamente:
+due persone e un bot, una persona e cinque bot, cinque persone e un bot. L'unico vincolo è che al
+tavolo ci sia **almeno una persona** — un tavolo di soli bot non è una partita, è una simulazione.
 
 ### Non sbirciano. Mai.
 

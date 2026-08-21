@@ -28,17 +28,19 @@ src/
   net/
     supabaseConfig.ts                         2026-08-19  edited this session
     supabaseTransport.ts                      2026-08-19  edited this session
-  routes/phone/
-    ActionPanel.tsx                           2026-08-19
+  routes/
+    phone/
+      ActionPanel.tsx                         2026-08-19
+    tv/
+      TvLobby.tsx                             2026-08-21  edited this session
   store/
     hostStore.ts                              2026-08-19
     playerStore.ts                            2026-08-19  edited this session
   test/ … 0 files, none ranked
   ui/ … 3 files, none ranked
-  vite-env.d.ts                               2026-08-19  edited this session
-  … 3 more, none ranked
+  … 4 more, none ranked
 .env                                          2026-08-19  edited this session
-README.md                                     2026-08-19  edited this session
+README.md                                     2026-08-21  edited this session
 package-lock.json                             2026-08-19
 … 15 more, none ranked
 # 19 of 111 files are on this map — the rest are unranked, not hidden.

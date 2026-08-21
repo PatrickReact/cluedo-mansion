@@ -40,8 +40,25 @@ export function TvLobby({ state, connected, transportKind, onStart, onAction }: 
   const humans = players.filter((p) => p.bot === null)
   const canStart = players.length >= MIN_PLAYERS && humans.length >= 1
 
+  /** Quanti posti mancano per raggiungere il minimo del regolamento. */
+  const mancanti = Math.max(0, MIN_PLAYERS - players.length)
+
   const addBot = (suspect: SuspectId): void => {
     onAction({ type: 'ADD_BOT', playerId: `bot_${newPlayerId()}`, suspect, level: 'medio' })
+  }
+
+  /**
+   * Completa il tavolo in un colpo solo.
+   *
+   * Il numero di bot non e una impostazione: e quanti posti restano da
+   * riempire. Chiederlo all'utente sarebbe farsi fare un conto che il gioco
+   * sa gia fare — e nella prova reale il conto non lo faceva nessuno: ci si
+   * fermava davanti al pulsante disabilitato senza capire che si potevano
+   * aggiungere avversari.
+   */
+  const completaTavolo = (): void => {
+    const liberi = SUSPECTS.filter((s) => !players.some((p) => p.suspect === s.id))
+    for (const s of liberi.slice(0, mancanti)) addBot(s.id)
   }
 
   const cycleLevel = (playerId: string, current: BotLevel): void => {
@@ -114,7 +131,11 @@ export function TvLobby({ state, connected, transportKind, onStart, onAction }: 
                 key={s.id}
                 className={cn(
                   'flex items-center gap-3 rounded-xl border p-3 transition',
-                  seat ? 'border-gold/50 bg-ink-4/60' : 'border-paper/10 opacity-60',
+                  seat
+                    ? 'border-gold/50 bg-ink-4/60'
+                    : mancanti > 0
+                      ? 'border-gold/25 bg-ink-3/40'
+                      : 'border-paper/10 opacity-60',
                 )}
               >
                 <img
@@ -131,12 +152,23 @@ export function TvLobby({ state, connected, transportKind, onStart, onAction }: 
                   </p>
                 </div>
 
-                {/* Posto libero: si puo riempire con un bot. */}
+                {/*
+                  Posto libero: si puo riempire con un bot. Finche il tavolo e
+                  incompleto il pulsante e in evidenza, perche in quel momento
+                  e l'unica azione che sblocca la partita; a tavolo valido
+                  torna discreto, per non spingere ad aggiungerne altri.
+                */}
                 {!seat && (
                   <button
                     type="button"
                     onClick={() => addBot(s.id)}
-                    className="btn btn-ghost !min-h-9 shrink-0 !px-3 !py-1 text-sm"
+                    className={cn(
+                      'shrink-0',
+                      mancanti > 0
+                        ? 'btn btn-primary !min-h-10 !px-4 !py-1'
+                        : 'btn btn-ghost !min-h-9 !px-3 !py-1',
+                      'text-sm',
+                    )}
                   >
                     <Bot className="size-4" /> Bot
                   </button>
@@ -173,18 +205,32 @@ export function TvLobby({ state, connected, transportKind, onStart, onAction }: 
           })}
         </ul>
 
-        <button
-          type="button"
-          onClick={onStart}
-          disabled={!canStart}
-          className="btn btn-primary w-full text-xl"
-        >
-          {canStart
-            ? 'Comincia il caso'
-            : humans.length === 0
-              ? 'Serve almeno una persona'
-              : `Servono ${MIN_PLAYERS} giocatori`}
-        </button>
+        {/*
+          Un pulsante disabilitato che enuncia il problema e un vicolo cieco:
+          da tre metri l'occhio ci si ferma e non trova il rimedio. Quando il
+          tavolo e incompleto, al suo posto compare l'azione che lo completa.
+        */}
+        {mancanti > 0 && humans.length > 0 ? (
+          <button type="button" onClick={completaTavolo} className="btn btn-primary w-full text-xl">
+            <Bot className="size-6" />
+            {mancanti === 1 ? 'Completa il tavolo con 1 bot' : `Completa il tavolo con ${mancanti} bot`}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={!canStart}
+            className="btn btn-primary w-full text-xl"
+          >
+            {canStart ? 'Comincia il caso' : 'In attesa del primo giocatore…'}
+          </button>
+        )}
+
+        {mancanti > 0 && humans.length > 0 && (
+          <p className="text-paper-dim -mt-2 text-center text-sm">
+            oppure scegli tu quali personaggi automatizzare, qui sopra
+          </p>
+        )}
       </aside>
     </div>
   )
